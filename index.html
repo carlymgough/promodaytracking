@@ -570,7 +570,7 @@ function ensureShape(s){
 
 // ── PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL HERE ──────────────────
 // Leave as empty string until you've set up the script (see Setup tab)
-const GAS_URL = "https://script.google.com/macros/s/AKfycbz-yFeHdl4WmgRwMrh__Q3D63ad9BKqc0M_DbksqcjhG4496Ut0ldkg1XaqQ6QjZfTx/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbwSOD1CLmoN0Q53arS7rdhwyci0xkHF2uggPHrmDV6WdLkCx_CyexZJbe79f2DLXHxO/exec";
 // ─────────────────────────────────────────────────────────────────────
 
 function setSync(mode, detail){
@@ -609,22 +609,26 @@ function queueSave(){
   // Save to localStorage immediately (survives tab close)
   try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){}
 
-  // Debounce the cloud save — use GET + encodeURIComponent to avoid CORS preflight
+  // Debounce the cloud save
+  // Use POST with text/plain — avoids CORS preflight unlike application/json
   setSync('saving');
   if(saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(async ()=>{
     if(!GAS_URL){ setSync('ok'); return; }
     try{
-      const encoded = encodeURIComponent(JSON.stringify(state));
-      const url = GAS_URL + '?action=save&state=' + encoded;
-      const res = await fetch(url, {cache:'no-store'});
+      const payload = JSON.stringify({action:'save', state: JSON.stringify(state)});
+      const res = await fetch(GAS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: payload
+      });
       const data = await res.json();
       if(data && data.ok) setSync('ok');
       else setSync('error', 'script error');
     }catch(e){
       setSync('error', 'cloud unreachable');
     }
-  }, 600);
+  }, 800);
 }
 
 /* ---------------- helpers ---------------- */
@@ -1162,7 +1166,9 @@ function importCSV(input){
       state = newState;
       ensureShape(state);
       queueSave();
+      switchTab('checklist');
       refreshAll();
+      window.scrollTo({top:0, behavior:'smooth'});
       showImportMsg('✓ Imported data for '+playerRowsImported+' players successfully.', true);
     }catch(err){
       showImportMsg('Import failed: '+err.message, false);
