@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Player Shoot Tracker</title>
+<style>
+  :root{
+    --navy:#0c2340;
+    --navy-2:#163a63;
+    --powder:#0080c6;
+    --powder-2:#3da4dd;
+    --gold:#ffc20e;
+    --bg:#eef2f7;
+    --card:#ffffff;
+    --border:#dbe3ee;
+    --text:#1a2433;
+    --mute:#647186;
+    --green:#1f9d55;
+    --green-bg:#e4f6ec;
+    --red:#c0392b;
+    --red-bg:#fbeae7;
+    --stripe: rgba(12,35,64,0.035);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .display{
+    font-family:'Arial Narrow',Arial,sans-serif;
+    font-weight:800;
+    text-transform:uppercase;
+    letter-spacing:.05em;
+  }
+  /* ---------- top bar ---------- */
+  .topbar{
+    background:linear-gradient(135deg,var(--navy) 0%, var(--navy-2) 100%);
+    color:#fff;
+    padding:16px 18px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    position:sticky;
+    top:0;
+    z-index:50;
+    box-shadow:0 2px 10px rgba(12,35,64,0.25);
+  }
+  .topbar-inner{display:flex;align-items:center;gap:12px;}
+  .bolt{
+    width:40px;height:40px;border-radius:10px;
+    background:var(--gold);
+    color:var(--navy);
+    display:flex;align-items:center;justify-content:center;
+    font-size:22px;font-weight:900;flex-shrink:0;
+  }
+  .title{font-size:18px;line-height:1.1;}
+  .subtitle{font-size:11px;color:#aebdd4;text-transform:uppercase;letter-spacing:.08em;margin-top:2px;}
+  .sync{
+    font-size:11px;color:#aebdd4;text-transform:uppercase;letter-spacing:.06em;
+    display:flex;align-items:center;gap:6px;white-space:nowrap;
+  }
+  .sync .dot{width:7px;height:7px;border-radius:50%;background:var(--green);transition:background .2s;}
+  .sync.saving .dot{background:var(--gold);}
+  .sync.error .dot{background:var(--red);}
+
+  /* ---------- tabs ---------- */
+  .tabs{
+    display:flex;gap:0;
+    background:#fff;
+    border-bottom:1px solid var(--border);
+    position:sticky;top:73px;z-index:40;
+  }
+  .tab{
+    flex:1;
+    padding:13px 10px;
+    border:none;background:none;cursor:pointer;
+    font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+    color:var(--mute);
+    border-bottom:3px solid transparent;
+    font-family:inherit;
+  }
+  .tab.active{color:var(--navy);border-bottom-color:var(--powder);}
+
+  .wrap{max-width:1100px;margin:0 auto;padding:14px;}
+  .view{display:none;}
+  .view.active{display:block;}
+
+  /* ---------- search row ---------- */
+  .search-row{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
+  .search-row input{
+    flex:1;min-width:160px;
+    padding:10px 12px;border:1px solid var(--border);border-radius:8px;
+    font-size:14px;background:#fff;
+  }
+  .search-row input:focus{outline:2px solid var(--powder);outline-offset:0;}
+  button{font-family:inherit;cursor:pointer;}
+  .btn{
+    padding:10px 14px;border:1px solid var(--border);border-radius:8px;
+    background:#fff;color:var(--navy);font-size:13px;font-weight:700;
+  }
+  .btn:hover{border-color:var(--powder);}
+  .btn.danger{color:var(--red);}
+  .btn.danger:hover{border-color:var(--red);background:var(--red-bg);}
+  .btn.small{padding:6px 10px;font-size:12px;border-radius:6px;}
+  .btn.primary{background:var(--powder);color:#fff;border-color:var(--powder);}
+
+  /* ---------- player grid ---------- */
+  .player-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
+    gap:8px;
+    margin-bottom:16px;
+  }
+  .player-chip{
+    display:flex;align-items:center;gap:10px;
+    padding:9px 10px;border:1px solid var(--border);border-radius:10px;
+    background:#fff;text-align:left;
+  }
+  .player-chip:hover{border-color:var(--powder);}
+  .player-chip.active{border-color:var(--powder);background:#eaf5fc;box-shadow:0 0 0 2px var(--powder) inset;}
+  .player-chip .num{
+    flex-shrink:0;width:34px;height:34px;border-radius:50%;
+    background:var(--navy);color:#fff;
+    display:flex;align-items:center;justify-content:center;
+    font-weight:800;font-size:13px;font-family:'Arial Narrow',Arial,sans-serif;
+  }
+  .player-chip .name{font-size:12.5px;font-weight:600;line-height:1.25;}
+  .player-chip .rookie-tag{
+    display:inline-block;font-size:9px;font-weight:800;color:var(--navy);
+    background:var(--gold);border-radius:4px;padding:1px 4px;margin-top:2px;
+    text-transform:uppercase;letter-spacing:.04em;
+  }
+  .player-chip .status-dot{
+    margin-left:auto;width:9px;height:9px;border-radius:50%;flex-shrink:0;
+    background:#cfd6e2;
+  }
+  .status-dot.in-range{background:var(--green);}
+  .status-dot.out-range{background:var(--red);}
+  .status-dot.started{background:var(--gold);}
+
+  /* ---------- player panel ---------- */
+  .player-panel{min-height:120px;}
+  .empty-state{
+    text-align:center;color:var(--mute);padding:50px 20px;
+    border:2px dashed var(--border);border-radius:12px;font-size:14px;
+  }
+  .player-head{
+    display:flex;align-items:center;gap:14px;
+    background:var(--card);border:1px solid var(--border);border-radius:12px;
+    padding:14px 16px;margin-bottom:12px;
+  }
+  .player-head .num{
+    width:54px;height:54px;border-radius:12px;background:var(--navy);color:#fff;
+    display:flex;align-items:center;justify-content:center;
+    font-size:24px;font-weight:900;font-family:'Arial Narrow',Arial,sans-serif;flex-shrink:0;
+  }
+  .player-head .name{font-size:18px;font-weight:800;}
+  .player-head .meta{font-size:12px;color:var(--mute);margin-top:3px;}
+  .player-head .meta .badge{
+    display:inline-block;font-weight:800;border-radius:5px;padding:2px 7px;font-size:11px;
+    margin-left:6px;letter-spacing:.03em;
+  }
+  .badge.green{background:var(--green-bg);color:var(--green);}
+  .badge.red{background:var(--red-bg);color:var(--red);}
+  .badge.gray{background:#eef1f6;color:var(--mute);}
+
+  /* ---------- notes ---------- */
+  .notes-card{
+    background:var(--card);border:1px solid var(--border);border-radius:12px;
+    padding:12px 14px;margin-bottom:12px;
+  }
+  .notes-label{
+    font-size:11px;font-weight:800;color:var(--navy);text-transform:uppercase;
+    letter-spacing:.05em;margin-bottom:6px;
+  }
+  .notes-textarea{
+    width:100%;min-height:64px;border:1px solid var(--border);border-radius:8px;
+    padding:8px 10px;font-size:13px;font-family:inherit;color:var(--text);
+    background:#fbfcfe;resize:vertical;
+  }
+  .notes-textarea:focus{outline:2px solid var(--powder);outline-offset:0;border-color:var(--powder);}
+
+  /* ---------- feature cards ---------- */
+  .feature-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+    gap:10px;
+  }
+  .feature-card{
+    background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;
+  }
+  .feature-head{
+    display:flex;align-items:center;gap:10px;
+    padding:12px 14px;cursor:pointer;
+    user-select:none;
+  }
+  .feature-head .ftitle{flex:1;font-size:14px;font-weight:800;color:var(--navy);}
+  .feature-head .fcount{font-size:12px;color:var(--mute);font-weight:700;white-space:nowrap;}
+  .feature-head .chev{transition:transform .15s;color:var(--mute);font-size:12px;}
+  .feature-card.open .chev{transform:rotate(90deg);}
+
+  .progress-track{
+    height:6px;width:100%;
+    background:repeating-linear-gradient(90deg,var(--stripe) 0 8px, transparent 8px 16px), #e7ecf3;
+    position:relative;
+  }
+  .progress-fill{height:100%;background:var(--powder);transition:width .25s;}
+  .progress-fill.full{background:var(--gold);}
+
+  .feature-body{display:none;padding:6px 14px 14px;border-top:1px solid var(--border);}
+  .feature-card.open .feature-body{display:block;}
+
+  .quick-actions{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0;}
+
+  .range-row{display:flex;align-items:center;gap:6px;margin:8px 0 10px;font-size:12px;color:var(--mute);}
+  .range-row input{
+    width:48px;padding:5px 6px;border:1px solid var(--border);border-radius:6px;
+    font-size:12px;text-align:center;
+  }
+
+  .sub-list{display:flex;flex-direction:column;gap:2px;max-height:340px;overflow-y:auto;}
+  .sub-item{
+    display:flex;align-items:center;gap:9px;
+    padding:6px 4px;border-radius:6px;font-size:13px;
+  }
+  .sub-item:hover{background:#f4f7fb;}
+  .sub-item .idx{
+    width:18px;text-align:right;color:var(--mute);font-size:11px;font-weight:700;flex-shrink:0;
+  }
+  .sub-item input[type=checkbox]{
+    width:19px;height:19px;flex-shrink:0;accent-color:var(--powder);cursor:pointer;
+  }
+  .sub-item label{flex:1;cursor:pointer;}
+  .sub-item.checked label{color:var(--green);font-weight:700;}
+
+  /* ---------- crunchtime count inputs ---------- */
+  .sub-item.count-item{cursor:default;}
+  .sub-item.count-item label.count-label{flex:1;cursor:default;}
+  .sub-item.count-item.checked label.count-label{color:var(--green);font-weight:700;}
+  .sub-item .idx{flex-shrink:0;}
+  .count-input{
+    width:56px;padding:5px 6px;border:1px solid var(--border);border-radius:6px;
+    font-size:13px;font-weight:700;text-align:center;font-family:inherit;flex-shrink:0;color:var(--navy);
+  }
+  .count-input:focus{outline:2px solid var(--powder);outline-offset:0;border-color:var(--powder);}
+  .count-hint{font-size:12px;color:var(--mute);margin:8px 0 10px;}
+  .count-input-table{
+    width:40px;padding:4px;border:1px solid var(--border);border-radius:6px;
+    font-size:13px;font-weight:700;text-align:center;font-family:inherit;color:var(--navy);
+  }
+  .count-input-table:focus{outline:2px solid var(--powder);outline-offset:0;border-color:var(--powder);}
+
+  /* ---------- feature selector ---------- */
+  .feature-selector{
+    display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:12px;
+    -webkit-overflow-scrolling:touch;
+  }
+  .feature-chip{
+    flex:0 0 auto;min-width:160px;
+    display:flex;flex-direction:column;gap:4px;
+    padding:10px 14px;border:1px solid var(--border);border-radius:10px;
+    background:#fff;text-align:left;
+  }
+  .feature-chip:hover{border-color:var(--powder);}
+  .feature-chip.active{border-color:var(--powder);background:#eaf5fc;box-shadow:0 0 0 2px var(--powder) inset;}
+  .feature-chip .fname{font-size:13px;font-weight:800;color:var(--navy);}
+  .feature-chip .fmeta{font-size:11px;color:var(--mute);}
+
+  /* ---------- overview table ---------- */
+  .stats-row{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;}
+  .stat{
+    background:var(--card);border:1px solid var(--border);border-radius:10px;
+    padding:10px 14px;flex:1;min-width:120px;
+  }
+  .stat .n{font-size:22px;font-weight:900;color:var(--navy);font-family:'Arial Narrow',Arial,sans-serif;}
+  .stat .l{font-size:11px;color:var(--mute);text-transform:uppercase;letter-spacing:.04em;margin-top:2px;}
+
+  .table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px;background:#fff;}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;min-width:760px;}
+  th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;}
+  thead th{
+    background:var(--navy);color:#fff;font-size:11px;text-transform:uppercase;letter-spacing:.04em;
+    position:sticky;top:0;
+  }
+  tbody tr:hover{background:#f4f8fc;cursor:pointer;}
+  tbody tr:nth-child(even){background:#fafcfe;}
+  td.numcell{font-weight:800;color:var(--navy);font-family:'Arial Narrow',Arial,sans-serif;}
+  .mini-bar{display:flex;align-items:center;gap:6px;}
+  .mini-track{width:54px;height:5px;border-radius:3px;background:#e7ecf3;overflow:hidden;}
+  .mini-fill{height:100%;background:var(--powder);}
+  .mini-fill.full{background:var(--gold);}
+  .mini-label{font-size:11px;color:var(--mute);min-width:34px;}
+
+  /* ---------- feature checklist table ---------- */
+  #featureTable th.sticky-col, #featureTable td.sticky-col{
+    position:sticky;left:0;z-index:2;background:#fff;
+    text-align:left;white-space:nowrap;
+  }
+  #featureTable thead th.sticky-col{background:var(--navy);z-index:3;}
+  #featureTable tbody tr:nth-child(even) td.sticky-col{background:#fafcfe;}
+  #featureTable th.subhead{
+    writing-mode:vertical-rl;transform:rotate(180deg);
+    text-align:left;vertical-align:bottom;
+    height:160px;white-space:nowrap;font-size:11px;font-weight:600;
+    text-transform:none;letter-spacing:0;padding:8px 5px;
+  }
+  #featureTable th.subhead .idxnum{
+    font-weight:800;color:var(--gold);margin-right:5px;
+  }
+  #featureTable td.checkbox-cell{text-align:center;padding:6px;}
+  #featureTable td.checkbox-cell input[type=checkbox]{width:18px;height:18px;accent-color:var(--powder);cursor:pointer;}
+  #featureTable td.ft-done{background:var(--green-bg);}
+  #featureTable td.ft-done input[type=checkbox]{accent-color:var(--green);}
+  #featureTable th.col-hover{background:#1a4a8a !important;}
+  #featureTable td.col-hover{background:#dceefb !important;}
+  #featureTable td.ft-done.col-hover{background:#b7e8cc !important;}
+  #featureTable td.donecell{font-weight:800;color:var(--navy);text-align:center;}
+  #featureTable tbody tr:hover{cursor:default;}
+  /* summary row */
+  #featureTable tr.summary-row td{background:#f0f4fa;border-top:2px solid var(--border);padding:4px 6px;}
+  #featureTable tr.summary-row:hover td{background:#f0f4fa;}
+  #featureTable .summary-label{font-size:11px;font-weight:800;color:var(--navy);text-transform:uppercase;letter-spacing:.04em;}
+  #featureTable .summary-cell{text-align:center;}
+  #featureTable .summary-n{font-size:12px;font-weight:800;color:var(--navy);}
+  #featureTable .summary-bar{height:4px;border-radius:2px;background:#dbe3ee;margin-top:2px;overflow:hidden;}
+  #featureTable .summary-fill{height:100%;background:var(--powder);}
+
+  footer{
+    text-align:center;color:var(--mute);font-size:11px;padding:18px;
+  }
+
+  /* ---------- setup tab ---------- */
+  .setup-tab{color:var(--mute);font-size:12px;}
+  .setup-steps{display:flex;flex-direction:column;gap:14px;margin-top:12px;}
+  .setup-step{display:flex;gap:12px;align-items:flex-start;}
+  .step-num{
+    flex-shrink:0;width:28px;height:28px;border-radius:50%;
+    background:var(--navy);color:#fff;
+    display:flex;align-items:center;justify-content:center;
+    font-weight:800;font-size:13px;margin-top:1px;
+  }
+  .step-body{font-size:13px;line-height:1.6;color:var(--text);}
+  .step-body a{color:var(--powder);}
+  .step-body em{font-style:normal;font-weight:700;color:var(--navy);}
+  .step-body code{background:#eef1f6;padding:2px 6px;border-radius:4px;font-size:12px;}
+  .code-block{
+    background:#f4f7fb;border:1px solid var(--border);border-radius:8px;
+    padding:12px;font-size:11px;overflow-x:auto;margin:8px 0 0;
+    white-space:pre;line-height:1.5;
+  }
+
+  @media (max-width:520px){
+    .title{font-size:15px;}
+    .subtitle{font-size:9px;}
+    .player-head .num{width:46px;height:46px;font-size:20px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="bolt">⚡</div>
+    <div>
+      <div class="title display">Stadium Features Tracker</div>
+      <div class="subtitle">2026 Promo Day</div>
+    </div>
+  </div>
+  <div class="sync" id="syncStatus"><span class="dot"></span><span id="syncLabel">Saved on this device</span></div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" data-tab="checklist" onclick="switchTab('checklist')">Player Checklist</button>
+  <button class="tab" data-tab="features" onclick="switchTab('features')">Feature Checklist</button>
+  <button class="tab" data-tab="overview" onclick="switchTab('overview')">Team Overview</button>
+  <button class="tab setup-tab" data-tab="setup" onclick="switchTab('setup')">⚙ Setup</button>
+</div>
+
+<div id="setupBanner" style="display:none;background:#fff3cd;border-bottom:2px solid #ffc20e;padding:10px 18px;font-size:13px;color:#7a5000;">
+  ⚠ <strong>Cloud sync not configured.</strong> Data saves to this browser only until you complete the Setup tab.
+</div>
+
+<div class="wrap">
+
+  <div class="view active" id="view-checklist">
+    <div class="search-row">
+      <input id="playerSearch" placeholder="Search by # or name..." oninput="renderPlayerGrid()">
+    </div>
+    <div class="player-grid" id="playerGrid"></div>
+    <div class="player-panel" id="playerPanel">
+      <div class="empty-state">Pick a player above to start tracking their features.</div>
+    </div>
+  </div>
+
+  <div class="view" id="view-setup">
+    <div class="notes-card" style="max-width:720px;margin:0 auto;">
+      <div class="notes-label">Cloud Sync Setup — one-time, ~5 minutes</div>
+      <p style="font-size:13px;color:#647186;margin:0 0 16px;">This connects the tracker to a free Google Sheet so data saves instantly to the cloud and survives closing the browser or switching devices.</p>
+
+      <div class="setup-steps">
+        <div class="setup-step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <strong>Create a Google Sheet</strong><br>
+            Go to <a href="https://sheets.google.com" target="_blank">sheets.google.com</a> and create a new blank sheet. Name it anything (e.g. "2026 Promo Day Tracker").
+          </div>
+        </div>
+        <div class="setup-step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <strong>Open Apps Script</strong><br>
+            In the sheet, click <em>Extensions → Apps Script</em>. Delete any existing code in the editor.
+          </div>
+        </div>
+        <div class="setup-step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <strong>Paste this code</strong><br>
+            Copy everything in the box below and paste it into the Apps Script editor:
+            <pre class="code-block">const SHEET_NAME = "Data";
+
+function doGet(e) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(SHEET_NAME);
+  if (!sheet) sheet = ss.insertSheet(SHEET_NAME);
+  const cell = sheet.getRange("A1").getValue();
+  const payload = cell ? { state: cell } : { state: null };
+  return ContentService
+    .createTextOutput(JSON.stringify(payload))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function doPost(e) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(SHEET_NAME);
+  if (!sheet) sheet = ss.insertSheet(SHEET_NAME);
+  const body = JSON.parse(e.postData.contents);
+  if (body.action === "save") {
+    sheet.getRange("A1").setValue(body.state);
+    // Write timestamp
+    sheet.getRange("B1").setValue(new Date().toLocaleString());
+  }
+  return ContentService
+    .createTextOutput(JSON.stringify({ ok: true }))
+    .setMimeType(ContentService.MimeType.JSON);
+}</pre>
+          </div>
+        </div>
+        <div class="setup-step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <strong>Deploy as Web App</strong><br>
+            Click <em>Deploy → New deployment</em>. Set type to <em>Web app</em>. Set <em>Execute as</em> to <strong>Me</strong> and <em>Who has access</em> to <strong>Anyone</strong>. Click Deploy, authorize it, then copy the Web App URL.
+          </div>
+        </div>
+        <div class="setup-step">
+          <div class="step-num">5</div>
+          <div class="step-body">
+            <strong>Paste the URL into the tracker HTML file</strong><br>
+            Open the <code>Player_Shoot_Tracker.html</code> file in a text editor. Find this line near the top of the <code>&lt;script&gt;</code> section:<br>
+            <code>const GAS_URL = "";</code><br>
+            Replace it with your URL:<br>
+            <code>const GAS_URL = "https://script.google.com/macros/s/YOUR_ID/exec";</code><br>
+            Save the file. Anyone who opens it will now sync to the same Google Sheet.
+          </div>
+        </div>
+        <div class="setup-step">
+          <div class="step-num">6</div>
+          <div class="step-body">
+            <strong>Done.</strong> The sync indicator in the top right will show <strong>✓ Cloud saved</strong> when working. Your Google Sheet will also show the raw data in cell A1 and the last save time in B1.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="view" id="view-features">
+    <div class="feature-selector" id="featureSelector"></div>
+    <div class="stats-row" id="featureStatsRow"></div>
+    <div id="featureNotes"></div>
+    <div class="search-row">
+      <input id="featurePlayerSearch" placeholder="Search by # or name..." oninput="renderFeatureTable()">
+    </div>
+    <div class="table-wrap">
+      <table id="featureTable">
+        <thead><tr id="featureTableHead"></tr></thead>
+        <tbody id="featureTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="view" id="view-overview">
+    <div class="stats-row" id="statsRow"></div>
+    <div class="search-row">
+      <input id="overviewSearch" placeholder="Search by # or name..." oninput="renderOverview()">
+      <button class="btn" onclick="exportCSV()">Export CSV</button>
+      <button class="btn primary" onclick="document.getElementById('importFileInput').click()">Import CSV</button>
+      <input type="file" id="importFileInput" accept=".csv" style="display:none" onchange="importCSV(this)">
+      <button class="btn danger" onclick="resetAll()">Reset All Data</button>
+    </div>
+    <div id="importMsg" style="display:none;padding:8px 12px;border-radius:8px;font-size:13px;font-weight:700;margin-bottom:10px;"></div>
+    <div class="table-wrap">
+      <table id="overviewTable">
+        <thead><tr id="overviewHead"></tr></thead>
+        <tbody id="overviewBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+
+<footer>Progress is saved automatically in this browser on this device. Use Export CSV to combine data from multiple devices.</footer>
+
+<script>
+const ROSTER = [{"num": 0, "name": "Daiyan Henley", "rookie": false}, {"num": 1, "name": "Quentin Johnston", "rookie": false}, {"num": 2, "name": "Elijah Molden", "rookie": false}, {"num": 3, "name": "Derwin James Jr.", "rookie": false}, {"num": 4, "name": "Tarheeb Still", "rookie": false}, {"num": 6, "name": "Denzel Perryman", "rookie": false}, {"num": 8, "name": "Omarion Hampton", "rookie": false}, {"num": 9, "name": "Tre' Harris", "rookie": false}, {"num": 11, "name": "Cameron Dicker", "rookie": false}, {"num": 15, "name": "Ladd McConkey", "rookie": false}, {"num": 16, "name": "JK Scott", "rookie": false}, {"num": 20, "name": "Cam Hart", "rookie": false}, {"num": 22, "name": "Genesis Smith", "rookie": true}, {"num": 23, "name": "Tony Jefferson", "rookie": false}, {"num": 26, "name": "Donte Jackson", "rookie": false}, {"num": 27, "name": "RJ Mickens", "rookie": false}, {"num": 28, "name": "Kimani Vidal", "rookie": false}, {"num": 30, "name": "Alec Ingold", "rookie": false}, {"num": 34, "name": "Keaton Mitchell", "rookie": false}, {"num": 43, "name": "Troy Dye", "rookie": false}, {"num": 45, "name": "Tuli Tuipulotu", "rookie": false}, {"num": 47, "name": "Josh Harris", "rookie": false}, {"num": 48, "name": "Bud Dupree", "rookie": false}, {"num": 63, "name": "Tyler Biadasz", "rookie": false}, {"num": 66, "name": "Jake Slaughter", "rookie": true}, {"num": 69, "name": "Cole Strange", "rookie": false}, {"num": 70, "name": "Rashawn Slater", "rookie": false}, {"num": 76, "name": "Joe Alt", "rookie": false}, {"num": 77, "name": "Travis Burke", "rookie": true}, {"num": 79, "name": "Trey Pipkins III", "rookie": false}, {"num": 83, "name": "David Njoku", "rookie": false}, {"num": 84, "name": "KeAndre Lambert-Smith", "rookie": false}, {"num": 86, "name": "Oronde Gadsden II", "rookie": false}, {"num": 88, "name": "Charlie Kolar", "rookie": false}, {"num": 89, "name": "Brenen Thompson", "rookie": true}, {"num": 90, "name": "Akheem Mesidor", "rookie": true}, {"num": 93, "name": "Teair Tart", "rookie": false}, {"num": 94, "name": "Dalvin Tomlinson", "rookie": false}];
+const FEATURES = {"Generation Gap": ["Wayne's World", "iShowSpeed", "Brad Pitt & Jennifer Aniston", "MySpace Tom", "Kurt Cobain (Nirvana)", "Wayne Gretzky", "Ken Griffey Jr.", "Bo Jackson", "Elton John", "Kai Cenat", "Topanga", "Rolling Stones", "Tia & Tamera Mowry", "Jim Carrey (Ace Ventura)", "Bruce Springsteen", "Emma Chamberlain", "Whitney Houston", "Paris Hilton", "Beach Boys", "Prince", "Vanilla Ice", "Steve Urkel", "Madonna", "David Bowie", "One Direction", "Kiss", "David Hasselhoff", "N'Sync"], "Gen Z Slang": ["Rizz", "Simp", "Ship", "Unc", "\"Clock It\"", "Huzz", "Aura Farming", "The Ick", "Sigma", "Beta", "Mutuals", "Mewing", "Delulu", "Chopped", "Bussin", "Mogging", "Looksmaxxing", "Menty B", "Dah Bih Gah", "Bonus: Floppy Disk", "Bonus: Pencil & Cassette", "Bonus: Be Kind Rewind", "Bonus: TRL/AOL/MTV", "Bonus: British Invasion"], "Crunchtime Challenge": ["Vegetables", "Fruits", "Types of Cereal", "Condiments", "Bakery Items", "Types of Pasta", "Thanksgiving Foods", "Seafood", "Foods Starting with C", "Appetizers", "Soup", "Cheeses"], "Superlatives": ["WWE Superstar After Retirement", "Mic'd Up: Unhinged Things", "Wildest Mic'd Up Content", "Reality TV Star", "Dancing with the Stars", "Best/Worst Dancer", "Funniest/Worst Jokes", "Zombie Apocalypse Survivor", "Trust to Land a Plane", "Least Want Dating Your Sister", "Strongest Smell in Sports", "Financial Advice Go-To", "Leaves Wallet in Car", "Lends You Money", "Cheapest Guy on Team", "Spends First Check Outrageously"], "Embrace Debate": ["Doors vs Wheels", "Crocs: Acceptable?", "Read Texts vs Search History", "Share Locations?", "Clap When Plane Lands?", "Ex's Netflix = Red Flag?", "Thumbdrive Gets Heavier?", "Ross & Rachel: On a Break?", "Was 8 Mile a Musical?", "Lightning McQueen: Car or Life Insurance?", "Mike Wazowski: Wink or Blink?", "Die Hard = Christmas Movie?", "Presents: Eve or Day?", "NYE Midnight: West or East Coast?", "$1M Now vs $300M Perfect Game", "$1M Now vs $100/Strike", "Team Dinner: Rookies or Vets?", "$1M Today vs Doubling Penny", "$1K/Joke vs $100/Laugh", "$10M/Yr w/ Clown vs Nothing", "Free Flights vs Free Hotels Forever"], "Spanish Language": ["\"Winning Is Fun\" -> Spanish", "PF Chang's Line -> Spanish", "\"Who's Got It Better\" -> Spanish", "Harbaugh \"Attack Each Day\" -> Spanish", "Macarena - En Espanol", "Macarena - En Ingles"]};
+const FEATURE_NAMES = Object.keys(FEATURES);
+const STORAGE_KEY = "tracker-state-v1";
+const COUNT_FEATURE = "Crunchtime Challenge"; // tracked by item-count instead of done/not-done
+
+let state = {};
+let currentPlayer = null;
+let currentFeature = 0;
+let openCards = new Set();
+let storageAvailable = true;
+
+function emptyState(){
+  const s = {};
+  ROSTER.forEach(p=>{
+    s[p.num] = {};
+    FEATURE_NAMES.forEach(f=>{
+      const fill = (f===COUNT_FEATURE) ? null : false;
+      s[p.num][f] = new Array(FEATURES[f].length).fill(fill);
+    });
+  });
+  s.notes = {players:{}, features:{}};
+  return s;
+}
+
+function ensureShape(s){
+  ROSTER.forEach(p=>{
+    if(!s[p.num]) s[p.num] = {};
+    FEATURE_NAMES.forEach(f=>{
+      const len = FEATURES[f].length;
+      const fill = (f===COUNT_FEATURE) ? null : false;
+      if(!Array.isArray(s[p.num][f])) s[p.num][f] = new Array(len).fill(fill);
+      else if(s[p.num][f].length !== len){
+        const arr = new Array(len).fill(fill);
+        for(let i=0;i<Math.min(len, s[p.num][f].length);i++) arr[i]=s[p.num][f][i];
+        s[p.num][f] = arr;
+      }
+      if(f===COUNT_FEATURE){
+        s[p.num][f] = s[p.num][f].map(v => (typeof v==='number' && v>=0 && isFinite(v)) ? Math.floor(v) : null);
+      } else {
+        s[p.num][f] = s[p.num][f].map(v => !!v);
+      }
+    });
+  });
+  if(!s.notes || typeof s.notes !== 'object') s.notes = {};
+  if(!s.notes.players || typeof s.notes.players !== 'object') s.notes.players = {};
+  if(!s.notes.features || typeof s.notes.features !== 'object') s.notes.features = {};
+  return s;
+}
+
+// ── PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL HERE ──────────────────
+// Leave as empty string until you've set up the script (see Setup tab)
+const GAS_URL = "https://script.google.com/macros/s/AKfycbz-yFeHdl4WmgRwMrh__Q3D63ad9BKqc0M_DbksqcjhG4496Ut0ldkg1XaqQ6QjZfTx/exec";
+// ─────────────────────────────────────────────────────────────────────
+
+function setSync(mode, detail){
+  const el = document.getElementById('syncStatus');
+  const label = document.getElementById('syncLabel');
+  el.className = 'sync' + (mode==='saving' ? ' saving' : mode==='error' ? ' error' : '');
+  label.textContent = mode==='saving' ? 'Saving...' : mode==='error' ? ('Error: '+(detail||'')) : '✓ Cloud saved';
+}
+
+async function loadState(){
+  // Always seed from localStorage first (instant)
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw) { state = JSON.parse(raw); ensureShape(state); }
+    else state = emptyState();
+  } catch(e){ state = emptyState(); }
+
+  // Then fetch latest from cloud if configured
+  if(GAS_URL){
+    try{
+      const res = await fetch(GAS_URL + '?action=load', {cache:'no-store'});
+      const data = await res.json();
+      if(data && data.state){
+        state = JSON.parse(data.state);
+        ensureShape(state);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      }
+    }catch(e){
+      console.warn('Cloud load failed, using local copy', e);
+    }
+  }
+}
+
+let saveTimer = null;
+function queueSave(){
+  // Save to localStorage immediately (survives tab close)
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){}
+
+  // Debounce the cloud save — use GET + encodeURIComponent to avoid CORS preflight
+  setSync('saving');
+  if(saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(async ()=>{
+    if(!GAS_URL){ setSync('ok'); return; }
+    try{
+      const encoded = encodeURIComponent(JSON.stringify(state));
+      const url = GAS_URL + '?action=save&state=' + encoded;
+      const res = await fetch(url, {cache:'no-store'});
+      const data = await res.json();
+      if(data && data.ok) setSync('ok');
+      else setSync('error', 'script error');
+    }catch(e){
+      setSync('error', 'cloud unreachable');
+    }
+  }, 600);
+}
+
+/* ---------------- helpers ---------------- */
+function featureProgress(num, fname){
+  const arr = state[num][fname];
+  if(fname===COUNT_FEATURE){
+    return {done: arr.filter(v=>v!==null && v!==undefined).length, total: arr.length};
+  }
+  return {done: arr.filter(Boolean).length, total: arr.length};
+}
+function featuresStarted(num){
+  return FEATURE_NAMES.filter(f=>featureProgress(num,f).done > 0).length;
+}
+function totalSubAsks(num){
+  return FEATURE_NAMES.reduce((sum,f)=>sum + featureProgress(num,f).done, 0);
+}
+function statusClass(num){
+  const n = featuresStarted(num);
+  if(n===0) return '';
+  if(n>=2 && n<=4) return 'in-range';
+  if(n===1) return 'started';
+  return 'out-range';
+}
+
+/* ---------------- tabs ---------------- */
+function switchTab(tab){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===tab));
+  document.getElementById('view-checklist').classList.toggle('active', tab==='checklist');
+  document.getElementById('view-features').classList.toggle('active', tab==='features');
+  document.getElementById('view-overview').classList.toggle('active', tab==='overview');
+  document.getElementById('view-setup').classList.toggle('active', tab==='setup');
+  if(tab==='overview') renderOverview();
+  if(tab==='features'){ renderFeatureSelector(); renderFeatureTable(); }
+}
+
+function checkBanner(){
+  const banner = document.getElementById('setupBanner');
+  if(banner) banner.style.display = GAS_URL ? 'none' : 'block';
+}
+
+/* ---------------- player grid ---------------- */
+function renderPlayerGrid(){
+  const q = document.getElementById('playerSearch').value.trim().toLowerCase();
+  const grid = document.getElementById('playerGrid');
+  grid.innerHTML = '';
+  ROSTER.forEach(p=>{
+    if(q && !(String(p.num).includes(q) || p.name.toLowerCase().includes(q))) return;
+    const chip = document.createElement('button');
+    chip.className = 'player-chip' + (currentPlayer===p.num ? ' active' : '');
+    chip.onclick = ()=>selectPlayer(p.num);
+    chip.innerHTML = `
+      <div class="num">${p.num}</div>
+      <div class="name">${p.name}${p.rookie ? '<br><span class="rookie-tag">Rookie</span>' : ''}</div>
+      <div class="status-dot ${statusClass(p.num)}"></div>
+    `;
+    grid.appendChild(chip);
+  });
+}
+
+function selectPlayer(num){
+  currentPlayer = num;
+  openCards = new Set();
+  renderPlayerGrid();
+  renderPlayerPanel();
+}
+
+/* ---------------- player panel ---------------- */
+function renderPlayerPanel(){
+  const panel = document.getElementById('playerPanel');
+  if(currentPlayer===null){
+    panel.innerHTML = '<div class="empty-state">Pick a player above to start tracking their features.</div>';
+    return;
+  }
+  const p = ROSTER.find(x=>x.num===currentPlayer);
+  const started = featuresStarted(p.num);
+  let badgeClass = 'gray', badgeText = 'No features yet';
+  if(started>=2 && started<=4){ badgeClass='green'; badgeText = started+' features in progress'; }
+  else if(started===1){ badgeClass='gray'; badgeText = '1 feature started'; }
+  else if(started>4){ badgeClass='red'; badgeText = started+' features — check this'; }
+
+  let html = `
+    <div class="player-head">
+      <div class="num">${p.num}</div>
+      <div>
+        <div class="name">${p.name}${p.rookie ? ' <span class="rookie-tag">Rookie</span>' : ''}</div>
+        <div class="meta">${totalSubAsks(p.num)} sub-asks completed total
+          <span class="badge ${badgeClass}">${badgeText}</span>
+        </div>
+      </div>
+    </div>
+    <div class="notes-card">
+      <div class="notes-label">Notes for ${p.name}</div>
+      <textarea class="notes-textarea" placeholder="Anything that stands out for this player..."
+        oninput="updatePlayerNote(${p.num}, this.value)">${escText(state.notes.players[p.num] || '')}</textarea>
+    </div>
+    <div class="feature-grid">
+  `;
+  FEATURE_NAMES.forEach((fname,fidx)=>{
+    html += renderFeatureCard(p.num, fname, fidx);
+  });
+  html += '</div>';
+  panel.innerHTML = html;
+}
+
+function renderFeatureCard(num, fname, fidx){
+  const subs = FEATURES[fname];
+  const arr = state[num][fname];
+  const {done,total} = featureProgress(num,fname);
+  const pct = total ? Math.round(done/total*100) : 0;
+  const key = num+'|'+fname;
+  const open = openCards.has(key);
+  const isCount = fname === COUNT_FEATURE;
+
+  let items = '';
+  subs.forEach((sub,i)=>{
+    if(isCount){
+      const val = arr[i];
+      items += `
+        <div class="sub-item count-item ${(val!==null && val!==undefined)?'checked':''}">
+          <span class="idx">${i+1}</span>
+          <label class="count-label">${sub}</label>
+          <input type="text" inputmode="numeric" pattern="[0-9]*" class="count-input" placeholder="#"
+            value="${(val===null||val===undefined)?'':val}"
+            onchange="setCount(${num}, ${fidx}, ${i}, this.value)">
+        </div>
+      `;
+    } else {
+      const checked = arr[i];
+      items += `
+        <div class="sub-item ${checked?'checked':''}">
+          <span class="idx">${i+1}</span>
+          <input type="checkbox" id="cb-${num}-${cssSafe(fname)}-${i}" ${checked?'checked':''}
+            onchange="toggleSubAsk(${num}, ${fidx}, ${i})">
+          <label for="cb-${num}-${cssSafe(fname)}-${i}">${sub}</label>
+        </div>
+      `;
+    }
+  });
+
+  const controls = isCount ? `
+        <div class="count-hint">Enter how many items they listed in each category. Leave blank if they didn't attempt it.</div>
+  ` : `
+        <div class="quick-actions">
+          <button class="btn small" onclick="quickAction(${num}, ${fidx}, 'all')">Select All</button>
+          <button class="btn small" onclick="quickAction(${num}, ${fidx}, 'none')">Clear All</button>
+        </div>
+        <div class="range-row">
+          Mark items
+          <input type="number" min="1" max="${total}" value="1" id="from-${num}-${cssSafe(fname)}">
+          to
+          <input type="number" min="1" max="${total}" value="${Math.min(5,total)}" id="to-${num}-${cssSafe(fname)}">
+          <button class="btn small primary" onclick="applyRange(${num}, ${fidx}, true)">Mark</button>
+          <button class="btn small" onclick="applyRange(${num}, ${fidx}, false)">Unmark</button>
+        </div>
+  `;
+
+  return `
+    <div class="feature-card ${open?'open':''}" data-key="${key}">
+      <div class="feature-head" onclick="toggleCard(${num}, ${fidx})">
+        <div class="ftitle">${fname}</div>
+        <div class="fcount">${done} / ${total}</div>
+        <div class="chev">&#9656;</div>
+      </div>
+      <div class="progress-track"><div class="progress-fill ${pct===100?'full':''}" style="width:${pct}%"></div></div>
+      <div class="feature-body">
+        ${controls}
+        <div class="sub-list">${items}</div>
+      </div>
+    </div>
+  `;
+}
+
+function cssSafe(s){ return s.replace(/[^a-zA-Z0-9]/g,''); }
+function escAttr(s){ return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function escText(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function toggleCard(num, fidx){
+  const fname = FEATURE_NAMES[fidx];
+  const key = num+'|'+fname;
+  if(openCards.has(key)) openCards.delete(key);
+  else openCards.add(key);
+  renderPlayerPanel();
+}
+
+function toggleSubAsk(num, fidx, idx){
+  const fname = FEATURE_NAMES[fidx];
+  state[num][fname][idx] = !state[num][fname][idx];
+  queueSave();
+  refreshAll();
+}
+
+function setCount(num, fidx, idx, value){
+  const fname = FEATURE_NAMES[fidx];
+  const trimmed = String(value).trim();
+  const v = trimmed === '' ? null : Math.max(0, parseInt(trimmed,10) || 0);
+  state[num][fname][idx] = v;
+  openCards.add(num+'|'+fname);
+  queueSave();
+  refreshAll();
+}
+
+function updatePlayerNote(num, value){
+  state.notes.players[num] = value;
+  queueSave();
+}
+
+function updateFeatureNote(fidx, value){
+  const fname = FEATURE_NAMES[fidx];
+  state.notes.features[fname] = value;
+  queueSave();
+}
+
+function quickAction(num, fidx, action){
+  const fname = FEATURE_NAMES[fidx];
+  const arr = state[num][fname];
+  if(action==='all') arr.fill(true);
+  else if(action==='none') arr.fill(false);
+  openCards.add(num+'|'+fname);
+  queueSave();
+  refreshAll();
+}
+
+function applyRange(num, fidx, value){
+  const fname = FEATURE_NAMES[fidx];
+  const total = FEATURES[fname].length;
+  let from = parseInt(document.getElementById(`from-${num}-${cssSafe(fname)}`).value,10);
+  let to = parseInt(document.getElementById(`to-${num}-${cssSafe(fname)}`).value,10);
+  if(isNaN(from)) from=1;
+  if(isNaN(to)) to=total;
+  from = Math.max(1, Math.min(from, total));
+  to = Math.max(1, Math.min(to, total));
+  if(from>to){ const t=from; from=to; to=t; }
+  const arr = state[num][fname];
+  for(let i=from-1;i<=to-1;i++) arr[i]=value;
+  openCards.add(num+'|'+fname);
+  queueSave();
+  refreshAll();
+}
+
+/* Re-render every view that depends on tracking state */
+function refreshAll(){
+  renderPlayerPanel();
+  renderPlayerGrid();
+  renderFeatureSelector();
+  renderFeatureTable();
+  renderOverview();
+}
+
+/* ---------------- feature checklist ---------------- */
+function selectFeature(fidx){
+  currentFeature = fidx;
+  renderFeatureSelector();
+  renderFeatureTable();
+}
+
+function renderFeatureSelector(){
+  const el = document.getElementById('featureSelector');
+  el.innerHTML = FEATURE_NAMES.map((fname,fidx)=>{
+    const started = ROSTER.filter(p=>featureProgress(p.num,fname).done > 0).length;
+    return `
+      <button class="feature-chip ${fidx===currentFeature?'active':''}" onclick="selectFeature(${fidx})">
+        <div class="fname">${fname}</div>
+        <div class="fmeta">${started} / ${ROSTER.length} players &middot; ${FEATURES[fname].length} sub-asks</div>
+      </button>
+    `;
+  }).join('');
+}
+
+function renderFeatureNotes(){
+  const fname = FEATURE_NAMES[currentFeature];
+  const el = document.getElementById('featureNotes');
+  el.innerHTML = `
+    <div class="notes-card">
+      <div class="notes-label">Notes for ${fname}</div>
+      <textarea class="notes-textarea" placeholder="Anything that stands out for this feature..."
+        oninput="updateFeatureNote(${currentFeature}, this.value)">${escText(state.notes.features[fname] || '')}</textarea>
+    </div>
+  `;
+}
+
+function renderFeatureTable(){
+  const fname = FEATURE_NAMES[currentFeature];
+  const subs = FEATURES[fname];
+  const isCount = fname === COUNT_FEATURE;
+
+  const head = document.getElementById('featureTableHead');
+  head.innerHTML = '<th class="sticky-col">Player</th>' +
+    subs.map((s,i)=>`<th class="subhead" data-col="${i}"><span class="idxnum">${i+1}</span>${s}</th>`).join('') +
+    `<th>${isCount ? 'Categories' : 'Done'}</th>`;
+
+  const q = document.getElementById('featurePlayerSearch').value.trim().toLowerCase();
+  const body = document.getElementById('featureTableBody');
+  body.innerHTML = '';
+
+  // track per-column player count for summary row
+  const colCounts = new Array(subs.length).fill(0);
+
+  ROSTER.forEach(p=>{
+    if(q && !(String(p.num).includes(q) || p.name.toLowerCase().includes(q))) return;
+    const arr = state[p.num][fname];
+    const tr = document.createElement('tr');
+    let cells = `<td class="sticky-col"><span class="numcell">${p.num}</span> ${p.name}${p.rookie?' <span class="rookie-tag">R</span>':''}</td>`;
+    subs.forEach((sub,i)=>{
+      if(isCount){
+        const val = arr[i];
+        const hasVal = val !== null && val !== undefined;
+        if(hasVal) colCounts[i]++;
+        cells += `<td class="checkbox-cell${hasVal?' ft-done':''}" data-col="${i}">
+            <input type="text" inputmode="numeric" pattern="[0-9]*" class="count-input-table" placeholder="#" title="${escAttr(sub)}"
+              value="${hasVal?val:''}"
+              onchange="setCount(${p.num}, ${currentFeature}, ${i}, this.value)">
+          </td>`;
+      } else {
+        const checked = !!arr[i];
+        if(checked) colCounts[i]++;
+        cells += `<td class="checkbox-cell${checked?' ft-done':''}" data-col="${i}">
+            <input type="checkbox" ${checked?'checked':''} title="${escAttr(sub)}"
+              onchange="toggleSubAsk(${p.num}, ${currentFeature}, ${i})">
+          </td>`;
+      }
+    });
+    const {done,total} = featureProgress(p.num, fname);
+    cells += `<td class="donecell">${done}/${total}</td>`;
+    tr.innerHTML = cells;
+    body.appendChild(tr);
+  });
+
+  // Summary row: how many players did each sub-ask
+  const visiblePlayers = ROSTER.filter(p=>!(q && !(String(p.num).includes(q)||p.name.toLowerCase().includes(q)))).length;
+  const summaryRow = document.createElement('tr');
+  summaryRow.className = 'summary-row';
+  let summaryCells = `<td class="sticky-col summary-label">Players ✓</td>`;
+  subs.forEach((sub,i)=>{
+    const n = colCounts[i];
+    const pct = visiblePlayers ? Math.round(n/visiblePlayers*100) : 0;
+    summaryCells += `<td class="summary-cell" data-col="${i}" title="${n} of ${visiblePlayers} players">
+        <div class="summary-n">${n}</div>
+        <div class="summary-bar"><div class="summary-fill" style="width:${pct}%"></div></div>
+      </td>`;
+  });
+  summaryCells += `<td class="donecell">—</td>`;
+  summaryRow.innerHTML = summaryCells;
+  body.appendChild(summaryRow);
+
+  // stats
+  const startedPlayers = ROSTER.filter(p=>featureProgress(p.num,fname).done > 0).length;
+  const completePlayers = ROSTER.filter(p=>featureProgress(p.num,fname).done === subs.length).length;
+  let extraStat;
+  if(isCount){
+    const totalItems = ROSTER.reduce((sum,p)=>sum + state[p.num][fname].reduce((s,v)=>s+(v||0),0), 0);
+    extraStat = `<div class="stat"><div class="n">${totalItems}</div><div class="l">Total Items Counted</div></div>`;
+  } else {
+    const totalDone = ROSTER.reduce((sum,p)=>sum + featureProgress(p.num,fname).done, 0);
+    extraStat = `<div class="stat"><div class="n">${totalDone}</div><div class="l">Total Sub-Asks Checked</div></div>`;
+  }
+  document.getElementById('featureStatsRow').innerHTML = `
+    <div class="stat"><div class="n">${startedPlayers} / ${ROSTER.length}</div><div class="l">Players Started</div></div>
+    <div class="stat"><div class="n">${completePlayers}</div><div class="l">Players Fully Done</div></div>
+    ${extraStat}
+  `;
+
+  renderFeatureNotes();
+}
+
+/* ---------------- overview ---------------- */
+function renderOverview(){
+  const head = document.getElementById('overviewHead');
+  head.innerHTML = '<th>#</th><th>Player</th>' +
+    FEATURE_NAMES.map(f=>`<th>${f}</th>`).join('') +
+    '<th>Features</th>';
+
+  const q = document.getElementById('overviewSearch').value.trim().toLowerCase();
+  const body = document.getElementById('overviewBody');
+  body.innerHTML = '';
+  ROSTER.forEach(p=>{
+    if(q && !(String(p.num).includes(q) || p.name.toLowerCase().includes(q))) return;
+    const tr = document.createElement('tr');
+    tr.onclick = ()=>{ switchTab('checklist'); selectPlayer(p.num); window.scrollTo({top:0,behavior:'smooth'}); };
+    let cells = `<td class="numcell">${p.num}</td><td>${p.name}${p.rookie?' <span class="rookie-tag">R</span>':''}</td>`;
+    FEATURE_NAMES.forEach(fname=>{
+      const {done,total} = featureProgress(p.num,fname);
+      const pct = total ? Math.round(done/total*100) : 0;
+      cells += `<td><div class="mini-bar">
+          <div class="mini-track"><div class="mini-fill ${pct===100?'full':''}" style="width:${pct}%"></div></div>
+          <div class="mini-label">${done}/${total}</div>
+        </div></td>`;
+    });
+    const started = featuresStarted(p.num);
+    let cls = 'gray';
+    if(started>=2 && started<=4) cls='green';
+    else if(started>4) cls='red';
+    cells += `<td><span class="badge ${cls}">${started}</span></td>`;
+    tr.innerHTML = cells;
+    body.appendChild(tr);
+  });
+
+  // stats
+  const totalPlayers = ROSTER.length;
+  const tracked = ROSTER.filter(p=>featuresStarted(p.num)>0).length;
+  const inRange = ROSTER.filter(p=>{const s=featuresStarted(p.num); return s>=2 && s<=4;}).length;
+  const outOfRange = ROSTER.filter(p=>{const s=featuresStarted(p.num); return s>4;}).length;
+  document.getElementById('statsRow').innerHTML = `
+    <div class="stat"><div class="n">${tracked} / ${totalPlayers}</div><div class="l">Players Started</div></div>
+    <div class="stat"><div class="n">${inRange}</div><div class="l">In 2-4 Feature Range</div></div>
+    <div class="stat"><div class="n">${outOfRange}</div><div class="l">Above 4 Features</div></div>
+  `;
+}
+
+/* ---------------- export / reset ---------------- */
+function exportCSV(){
+  const rows = [];
+  // Header: #, Player, Rookie, then each sub-ask individually for every feature, then notes
+  const header = ['#','Player','Rookie'];
+  FEATURE_NAMES.forEach(f=>{
+    FEATURES[f].forEach((sub,i)=> header.push(f+': '+sub));
+  });
+  header.push('Player Notes');
+  rows.push(header);
+
+  ROSTER.forEach(p=>{
+    const row = [p.num, p.name, p.rookie?'Yes':'No'];
+    FEATURE_NAMES.forEach(f=>{
+      const arr = state[p.num][f];
+      arr.forEach(v=>{
+        if(f===COUNT_FEATURE) row.push((v===null||v===undefined)?'':v);
+        else row.push(v?'X':'');
+      });
+    });
+    row.push(state.notes.players[p.num] || '');
+    rows.push(row);
+  });
+
+  rows.push([]);
+  rows.push(['Feature Notes']);
+  FEATURE_NAMES.forEach(f=>{
+    rows.push([f, state.notes.features[f] || '']);
+  });
+
+  const csv = rows.map(r=>r.map(v=>{
+    const s = String(v);
+    return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+  }).join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'shoot_tracker_export.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function resetAll(){
+  if(!confirm('Reset all tracking data for every player? This cannot be undone.')) return;
+  state = emptyState();
+  queueSave();
+  refreshAll();
+}
+
+function showImportMsg(text, ok){
+  const el = document.getElementById('importMsg');
+  el.style.display = 'block';
+  el.style.background = ok ? 'var(--green-bg)' : 'var(--red-bg)';
+  el.style.color = ok ? 'var(--green)' : 'var(--red)';
+  el.textContent = text;
+  setTimeout(()=>{ el.style.display='none'; }, 5000);
+}
+
+function importCSV(input){
+  const file = input.files[0];
+  if(!file){ return; }
+  input.value = '';
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      const lines = e.target.result.split('\n').map(l=>l.trim()).filter(l=>l);
+      if(!lines.length) throw new Error('Empty file');
+
+      function parseRow(line){
+        const fields = []; let cur='', inQ=false;
+        for(let i=0;i<line.length;i++){
+          const c=line[i];
+          if(c==='"'){ if(inQ&&line[i+1]==='"'){cur+='"';i++;} else inQ=!inQ; }
+          else if(c===','&&!inQ){ fields.push(cur); cur=''; }
+          else cur+=c;
+        }
+        fields.push(cur);
+        return fields;
+      }
+
+      const headers = parseRow(lines[0]);
+      const newState = emptyState();
+      let playerRowsImported = 0;
+      let featureNotesSection = false;
+
+      // Build column index map from headers
+      // Cols: #(0), Player(1), Rookie(2), then sub-asks, then Player Notes
+      const colMap = {}; // "FeatureName|subIndex" -> col index
+      let col = 3;
+      FEATURE_NAMES.forEach(f=>{
+        FEATURES[f].forEach((sub,i)=>{
+          colMap[f+'|'+i] = col++;
+        });
+      });
+      const notesCol = col; // Player Notes
+
+      for(let li=1; li<lines.length; li++){
+        const row = parseRow(lines[li]);
+        if(!row[0]) continue;
+        if(row[0]==='Feature Notes'){ featureNotesSection=true; continue; }
+        if(featureNotesSection){
+          const fname=row[0];
+          if(fname && FEATURE_NAMES.includes(fname)) newState.notes.features[fname]=row[1]||'';
+          continue;
+        }
+        const num = parseInt(row[0]);
+        if(isNaN(num)) continue;
+        if(!ROSTER.find(p=>p.num===num)) continue;
+
+        FEATURE_NAMES.forEach(f=>{
+          FEATURES[f].forEach((sub,i)=>{
+            const val = row[colMap[f+'|'+i]] || '';
+            if(f===COUNT_FEATURE){
+              newState[num][f][i] = val==='' ? null : (parseInt(val)||0);
+            } else {
+              newState[num][f][i] = val.toUpperCase()==='X';
+            }
+          });
+        });
+        newState.notes.players[num] = row[notesCol] || '';
+        playerRowsImported++;
+      }
+
+      state = newState;
+      ensureShape(state);
+      queueSave();
+      refreshAll();
+      showImportMsg('✓ Imported data for '+playerRowsImported+' players successfully.', true);
+    }catch(err){
+      showImportMsg('Import failed: '+err.message, false);
+    }
+  };
+  reader.readAsText(file);
+}
+
+/* ---------------- init ---------------- */
+(async function init(){
+  await loadState();
+  checkBanner();
+  renderPlayerGrid();
+  renderPlayerPanel();
+  renderFeatureSelector();
+  renderFeatureTable();
+  renderOverview();
+
+  // Column hover highlight on feature table
+  const ft = document.getElementById('featureTable');
+  let lastCol = -1;
+  function setColHighlight(col, on){
+    if(col < 0) return;
+    ft.querySelectorAll(`[data-col="${col}"]`).forEach(el=>el.classList.toggle('col-hover', on));
+  }
+  ft.addEventListener('mouseover', e=>{
+    const el = e.target.closest('[data-col]');
+    const col = el ? parseInt(el.dataset.col) : -1;
+    if(col !== lastCol){ setColHighlight(lastCol, false); setColHighlight(col, true); lastCol = col; }
+  });
+  ft.addEventListener('mouseleave', ()=>{ setColHighlight(lastCol, false); lastCol = -1; });
+
+  // Belt-and-suspenders: save to localStorage on page unload
+  window.addEventListener('beforeunload', ()=>{
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){}
+  });
+})();
+</script>
+</body>
+</html>
